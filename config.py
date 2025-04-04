@@ -1,4 +1,4 @@
-TOKEN_TG = "7257113676:AAELj-rCEYfiPqikexPzy8B8bNPOlp3pf_Q"
+TOKEN_TG = ""
 
 PATH_TO_SE = r'D:/Users/User/Desktop/drop_bot/api/'
 
