@@ -13,30 +13,7 @@ class ApiClient:
         self.bot_username = bot_username
         self.base_url = "https://msa-bff-telegram-neobank.neoflex.ru/v1"
 
-        self.token_cache = {(583149224, 583149224): "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJsMERJdG0wV19FVXp"
-                                                    "EcEpIWFBaWnFObnNST2lPUkpLcmdGYnIxZ3JYdUFrIn0.eyJleHAiOjE3NDQ5MzEyMz"
-                                                    "QsImlhdCI6MTc0NDkxNjgzNCwiYXV0aF90aW1lIjoxNzQ0OTE2NzYwLCJqdGkiOiI4Z"
-                                                    "Tg5MTRlMS1mNWVmLTQxODEtYjhhMi0yM2FiOGVkYTljZTgiLCJpc3MiOiJodHRwczov"
-                                                    "L2lkLW5lb2JhbmsubmVvZmxleC5ydS9hdXRoL3JlYWxtcy9tc2FiYW5rIiwiYXVkIjp"
-                                                    "bImFjY291bnQiLCJtc2FiYW5rIl0sInN1YiI6IjU1MjgwOGM0LTljZTMtNDI4Yy1iND"
-                                                    "M2LWQ2MmJlYTZlMDIzNSIsInR5cCI6IkJlYXJlciIsImF6cCI6Im1zYWJhbmstc2Vyd"
-                                                    "mljZSIsInNlc3Npb25fc3RhdGUiOiI4NjhmNzJiNC0yMTc5LTRlMzUtYWVhZC1iYTAy"
-                                                    "NDRmMWI5NjQiLCJhY3IiOiIwIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVhbG1"
-                                                    "fYWNjZXNzIjp7InJvbGVzIjpbImRlZmF1bHQtcm9sZXMtbXNhYmFuayIsIm9mZmxpbm"
-                                                    "VfYWNjZXNzIiwidW1hX2F1dGhvcml6YXRpb24iXX0sInJlc291cmNlX2FjY2VzcyI6e"
-                                                    "yJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291"
-                                                    "bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX0sIm1zYWJhbmsiOnsicm9sZXMiOlsiY2x"
-                                                    "pZW50Il19fSwic2NvcGUiOiJvcGVuaWQgQlJBTkNIIHByb2ZpbGUgZW1haWwiLCJzaW"
-                                                    "QiOiI4NjhmNzJiNC0yMTc5LTRlMzUtYWVhZC1iYTAyNDRmMWI5NjQiLCJCUkFOQ0giO"
-                                                    "iIxIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJOaWtpdGEgQW5kcmVldiIs"
-                                                    "InByZWZlcnJlZF91c2VybmFtZSI6ImFuZHJlZXZucyIsImdpdmVuX25hbWUiOiJOaWt"
-                                                    "pdGEiLCJmYW1pbHlfbmFtZSI6IkFuZHJlZXYiLCJlbWFpbCI6ImFuZHJlZXZuc0BuZW"
-                                                    "9iYW5rLnJ1In0.c5ol2e91UTxdoHLrscdQxAcI4XLLpD09Q6S8_S_WB6gWzR5FrRVd0"
-                                                    "EXD7xYUHw8awJkxE8afbH7XyUl77s-DQfK4c6w4Y-Inl2eEhQsOS8rwK_-91LZrnPU2"
-                                                    "vl3-K6dPZmkJQDcu9kIgxC-Z5zZltrTRaUaGXTNR5KgPd3tNCW2Dlzea_jYDd6lopfd"
-                                                    "Tw-Uo6MLAko_qmno6RD4X7Ebzy4MD9HFKtXcTEJAh9kWatM9Wj0KhD3SadkEcEk6pWu"
-                                                    "xtmprmeXcFW3RDFkiSDSmvXwMzMqo4-d2pGUNWdRAyZiWJY_dWXEWNqAz-gnUU67FfV"
-                                                    "SgQidSZ5NRdMUmRwyC-Qg"}
+        self.token_cache = {}
 
     def generate_hash_signature(self, data_string):
         return hmac.new(self.secret_key, data_string.encode(), hashlib.sha256).hexdigest()
@@ -48,9 +25,11 @@ class ApiClient:
         if (chat_id, user_id) in self.token_cache:
             return 200, self.token_cache[(chat_id, user_id)]
 
-        data_string = (f"bot_id={self.bot_id}\nbot_username={self.bot_username}\nchat_id={chat_id}\n"
-                       f"chat_type={chat_type}\nuser_id={user_id}")
+        # data_string = (f"bot_id={self.bot_id}\nbot_username={self.bot_username}\nchat_id={chat_id}\n"
+        #                f"chat_type={chat_type}\nuser_id={user_id}")
 
+        data_string = (f"bot_id={self.bot_id}\nbot_username={self.bot_username}\nchat_id=583149224\n"
+                       f"chat_type={chat_type}\nuser_id={user_id}")
         hash_signature = self.generate_hash_signature(data_string)
         auth_date = self.generate_auth_date()
 
