@@ -1,12 +1,5 @@
-from datetime import datetime
 
-import xlsxwriter
-import io
-
-from UTILS import determine_age_rating
-from main import dm
 from models.models import Individual, Card
-
 
 
 BLOCK_RESONES = {
@@ -15,6 +8,7 @@ BLOCK_RESONES = {
 class Commands:
     help = ["/start", "/help"]
     profile = ["/profile", "профиль"]
+
 class IndividualText:
     @staticmethod
     def get_registration_text(individual: Individual) -> str:
@@ -29,51 +23,6 @@ class IndividualText:
                 f"<code>{number_status}</code>\n"
                 f"<i>{passport_photo_status}</i>\n"
                 f"<i>{registration_photo_status}</i>\n")
-
-class CardText:
-    CARD_LIST_TEXT = "<b>Выберите сохраненную карту или добавьте новую:</b>"
-
-    CARD_NUMBER = "<b>Введите номер карты:</b>"
-    CARD_DATE = '<b>Введите срок действия карты в формате "месяц/год":</b>'
-    CARD_CVV = '<b>Введите CVV-код карты:</b>'
-
-    CARD_VALIDATION_ERROR = '🆘 Ошибка валиации карты!'
-
-    CARD_DEL = "❌ Удалить"
-    IND_CARD_ADD = "📄 Добавить Физ.Лицо"
-    @staticmethod
-    def get_short_number(card_number: int) -> str:
-        return f'{get_bank(card_number)[0]} *{str(card_number)[-4:]}'
-
-
-    STATUS = {
-        0: "📝ЧЕРНОВИК",
-        1: "🔍ПРОВЕРКА",
-        2: "✅АКТИВНА",
-        3: "🆘РЕСТ ИН ПИС"
-    }
-
-    ADD_CARD = "➕ Добавить карту"
-    MY_CARD = "Мои карты"
-
-    @staticmethod
-    async def get_add_text(card: Card) -> str:
-        status = CardText.STATUS[card.card_status] if card.card_status in CardText.STATUS else "ERROR"
-
-        individual_text = "<b>🚫 Физ.Лицо</b>"
-        if card.individual_id is not None:
-            individual_text = ""
-            ind = Individual(id=card.individual_id)
-            await dm.execute_query(ind.get_one)
-            individual_text += f"<b>{ind.fullname}</b>\n"
-            individual_text += determine_age_rating(ind.birthdate)
-
-        return (f"{status}\n\n"
-                f"<b>{get_bank(card.card_number)}</b>\n"
-                f"<code>{card.card_number}</code>\n"
-                f"cvv - <code>{card.activation_date}</code> mm/gg - <code>{card.cvv}</code>\n"
-                f"----------------------------------------------\n"
-                f"{individual_text}")
 
 class WorkerText:
     @staticmethod

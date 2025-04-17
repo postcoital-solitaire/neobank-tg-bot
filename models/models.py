@@ -1,35 +1,23 @@
-import typing
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 from aiogram.filters.callback_data import CallbackData
 
-import content
-from orm.base_model import BaseModel, AbstractModel
+from orm.base_model import BaseModel
+
 
 class Action(str, Enum):
-    verificate = "verificate"
-    cancel = "cancel"
-    edit = "edit"
-    stop = "stop"
-    edit_numbers = "edit_numbers"
-    edit_birthdate = "edit_birthdate"
+    checktoken = "checktoken"
 
-    add_card = "add_card"
-    del_card = "del_card"
-    add_ind_card = "add_ind_card"
-    verificate_card_ind = "verificate_card_ind"
-    info_card = "info_card"
-    back_to_profile = "back_to_profile"
-    my_cards = "my_cards"
-    join_group = "join_group"
-    notifications = "notifications"
-
+    deposits = "deposits"
+    credits = "credits"
+    accounts = "accounts"
+    products = "products"
 
 class DefaultActions(CallbackData, prefix="def"):
     action: Action
-    cache: Optional[str]
+    cache: Optional[str] = None
 
 
 class Manager(BaseModel):

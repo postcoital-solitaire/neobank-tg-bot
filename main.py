@@ -1,22 +1,32 @@
 import asyncio
 import logging
+import os
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 import config as c
+from api.neopayapi import ApiClient
 from db import DatabaseManager
 
-dm = DatabaseManager()
+#dm = DatabaseManager()
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+from dotenv import load_dotenv
+load_dotenv()
+
+bot_username = "neopayment_bot"
+bot_id = 7711831733
+secret_key = os.getenv("SECRET_KEY")
+
+client = ApiClient(bot_id, bot_username, str.encode(secret_key))
+
 async def main():
     bot = Bot(token=c.TOKEN_TG)
-    await dm.create_pool()
+    #await dm.create_pool()
 
-    from handlers import admin_handler
-    from handlers.worker import registration_handler, main_handler
+    from handlers import registration_handler, main_handler
 
     rooters = [registration_handler, main_handler]
 

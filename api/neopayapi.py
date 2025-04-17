@@ -3,142 +3,190 @@ import asyncio
 import hashlib
 import hmac
 import time
+import logging
+logger = logging.getLogger(__name__)
 
 class ApiClient:
-    def __init__(self, bot_id, chat_id, chat_type, user_id, bot_username, secret_key):
+    def __init__(self, bot_id, bot_username, secret_key):
         self.bot_id = bot_id
-        self.chat_id = chat_id
-        self.chat_type = chat_type
-        self.user_id = user_id
         self.secret_key = secret_key
         self.bot_username = bot_username
-        self.base_url = "https://msa-bff-telegram-neobank.neoflex.ru/v1/token"
+        self.base_url = "https://msa-bff-telegram-neobank.neoflex.ru/v1"
+
+        self.token_cache = {(583149224, 583149224): "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJsMERJdG0wV19FVXp"
+                                                    "EcEpIWFBaWnFObnNST2lPUkpLcmdGYnIxZ3JYdUFrIn0.eyJleHAiOjE3NDQ5MzEyMz"
+                                                    "QsImlhdCI6MTc0NDkxNjgzNCwiYXV0aF90aW1lIjoxNzQ0OTE2NzYwLCJqdGkiOiI4Z"
+                                                    "Tg5MTRlMS1mNWVmLTQxODEtYjhhMi0yM2FiOGVkYTljZTgiLCJpc3MiOiJodHRwczov"
+                                                    "L2lkLW5lb2JhbmsubmVvZmxleC5ydS9hdXRoL3JlYWxtcy9tc2FiYW5rIiwiYXVkIjp"
+                                                    "bImFjY291bnQiLCJtc2FiYW5rIl0sInN1YiI6IjU1MjgwOGM0LTljZTMtNDI4Yy1iND"
+                                                    "M2LWQ2MmJlYTZlMDIzNSIsInR5cCI6IkJlYXJlciIsImF6cCI6Im1zYWJhbmstc2Vyd"
+                                                    "mljZSIsInNlc3Npb25fc3RhdGUiOiI4NjhmNzJiNC0yMTc5LTRlMzUtYWVhZC1iYTAy"
+                                                    "NDRmMWI5NjQiLCJhY3IiOiIwIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVhbG1"
+                                                    "fYWNjZXNzIjp7InJvbGVzIjpbImRlZmF1bHQtcm9sZXMtbXNhYmFuayIsIm9mZmxpbm"
+                                                    "VfYWNjZXNzIiwidW1hX2F1dGhvcml6YXRpb24iXX0sInJlc291cmNlX2FjY2VzcyI6e"
+                                                    "yJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291"
+                                                    "bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX0sIm1zYWJhbmsiOnsicm9sZXMiOlsiY2x"
+                                                    "pZW50Il19fSwic2NvcGUiOiJvcGVuaWQgQlJBTkNIIHByb2ZpbGUgZW1haWwiLCJzaW"
+                                                    "QiOiI4NjhmNzJiNC0yMTc5LTRlMzUtYWVhZC1iYTAyNDRmMWI5NjQiLCJCUkFOQ0giO"
+                                                    "iIxIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJOaWtpdGEgQW5kcmVldiIs"
+                                                    "InByZWZlcnJlZF91c2VybmFtZSI6ImFuZHJlZXZucyIsImdpdmVuX25hbWUiOiJOaWt"
+                                                    "pdGEiLCJmYW1pbHlfbmFtZSI6IkFuZHJlZXYiLCJlbWFpbCI6ImFuZHJlZXZuc0BuZW"
+                                                    "9iYW5rLnJ1In0.c5ol2e91UTxdoHLrscdQxAcI4XLLpD09Q6S8_S_WB6gWzR5FrRVd0"
+                                                    "EXD7xYUHw8awJkxE8afbH7XyUl77s-DQfK4c6w4Y-Inl2eEhQsOS8rwK_-91LZrnPU2"
+                                                    "vl3-K6dPZmkJQDcu9kIgxC-Z5zZltrTRaUaGXTNR5KgPd3tNCW2Dlzea_jYDd6lopfd"
+                                                    "Tw-Uo6MLAko_qmno6RD4X7Ebzy4MD9HFKtXcTEJAh9kWatM9Wj0KhD3SadkEcEk6pWu"
+                                                    "xtmprmeXcFW3RDFkiSDSmvXwMzMqo4-d2pGUNWdRAyZiWJY_dWXEWNqAz-gnUU67FfV"
+                                                    "SgQidSZ5NRdMUmRwyC-Qg"}
 
     def generate_hash_signature(self, data_string):
         return hmac.new(self.secret_key, data_string.encode(), hashlib.sha256).hexdigest()
 
     def generate_auth_date(self):
-        return str(int(time.time()))
+        return str(int(time.time_ns() // 1000000))
 
-    async def get_token(self):
-        data_string = f"{self.chat_id}{self.chat_type}{self.user_id}{self.bot_id}{self.bot_username}"
+    async def get_token(self, chat_id, chat_type, user_id):
+        if (chat_id, user_id) in self.token_cache:
+            return 200, self.token_cache[(chat_id, user_id)]
+
+        data_string = (f"bot_id={self.bot_id}\nbot_username={self.bot_username}\nchat_id={chat_id}\n"
+                       f"chat_type={chat_type}\nuser_id={user_id}")
+
         hash_signature = self.generate_hash_signature(data_string)
         auth_date = self.generate_auth_date()
 
         params = {
-            "chat_id": self.chat_id,
-            "chat_type": self.chat_type,
-            "user_id": self.user_id,
             "bot_id": self.bot_id,
             "bot_username": self.bot_username,
+            "chat_id": chat_id,
+            "chat_type": chat_type,
+            "user_id": user_id,
             "hash": hash_signature,
             "auth_date": auth_date
         }
 
-        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-            async with session.get(self.base_url, params=params) as response:
-                print(params)
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=True)) as session:
+            async with session.get(f"{self.base_url}/token", params=params) as response:
                 if response.status == 200:
-                    print(await response.text())
+                    logger.log(2, await response.json())
 
-                    return await response.json()
+                    token_data = await response.json()
+                    token = token_data.get("access_token")
+
+                    if token:
+                        self.token_cache[(chat_id, user_id)] = token
+                        return response.status, token
                 else:
-                    print(f"{response.text}")
-                    return None
+                    auth_url = f"{self.base_url}/auth" + "?" + "&".join([f"{key}={value}" for key, value in params.items()])
+                    return response.status, auth_url
 
-
-class BankApiClient(ApiClient):
-    def __init__(self, bot_id, chat_id, chat_type, user_id, secret_key):
-        super().__init__(bot_id, chat_id, chat_type, user_id, secret_key)
-        self.base_url = "https://msa-bff-telegram-neobank.neoflex.ru/v1"
-
-    async def close_account(self, account_id, authorization_token):
-        url = f"{self.base_url}/accounts/{account_id}/close"
-        headers = {
-            "Authorization": authorization_token,
-        }
-        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-            async with session.post(url, headers=headers) as response:
-                if response.status == 200:
-                    return await response.json()
-                else:
-                    return await response.json()
-
-    async def get_products(self, authorization_token, product_type):
-        url = f"{self.base_url}/products"
-        headers = {
-            "Authorization": authorization_token,
-        }
-        params = {
-            "productType": product_type
-        }
-        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-            async with session.get(url, headers=headers, params=params) as response:
-                if response.status == 200:
-                    return await response.json()
-                else:
-                    return await response.json()
-
-    async def open_deposit(self, authorization_token, account_id, deposit_product_id, period, amount,
-                           auto_prolongation):
-        url = f"{self.base_url}/deposits"
-        headers = {
-            "Authorization": authorization_token,
-        }
-        data = {
-            "accountId": account_id,
-            "depositProductId": deposit_product_id,
-            "period": period,
-            "amount": amount,
-            "autoProlongation": auto_prolongation
-        }
-        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-            async with session.post(url, headers=headers, json=data) as response:
-                if response.status == 201:
-                    return await response.json()
-                else:
-                    return await response.json()
-
-    async def get_deposits(self, authorization_token, status=None):
-        url = f"{self.base_url}/deposits"
-        headers = {
-            "Authorization": authorization_token,
-        }
-        params = {
-            "status": status
-        } if status else {}
+    async def get_resource(self, endpoint, authorization_token, params=None):
+        url = f"{self.base_url}/{endpoint}"
+        headers = {"Authorization": "Bearer " + authorization_token}
+        params = params or {}
+        logger.log(1, url)
 
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
             async with session.get(url, headers=headers, params=params) as response:
-                if response.status == 200:
-                    return await response.json()
-                else:
-                    return await response.json()
 
-    async def close_deposit(self, deposit_id, authorization_token):
-        url = f"{self.base_url}/deposits/{deposit_id}/close"
-        headers = {
-            "Authorization": authorization_token,
-        }
-        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-            async with session.post(url, headers=headers) as response:
-                if response.status == 200:
-                    return await response.json()
-                else:
-                    return await response.json()
+                logger.log(2, await response.json())
+                return await response.json()
+
+    def get_token_cache(self, key):
+        return self.token_cache.get(key)
+
+# class BankApiClient(ApiClient):
+#     def __init__(self, bot_id, chat_id, chat_type, user_id, secret_key):
+#         super().__init__(bot_id, chat_id, chat_type, user_id, secret_key)
+#         self.base_url = "https://msa-bff-telegram-neobank.neoflex.ru/v1"
+#
+#     async def close_account(self, account_id, authorization_token):
+#         url = f"{self.base_url}/accounts/{account_id}/close"
+#         headers = {
+#             "Authorization": authorization_token,
+#         }
+#         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+#             async with session.post(url, headers=headers) as response:
+#                 if response.status == 200:
+#                     return await response.json()
+#                 else:
+#                     return await response.json()
+#
+#     async def get_products(self, authorization_token, product_type):
+#         url = f"{self.base_url}/products"
+#         headers = {
+#             "Authorization": authorization_token,
+#         }
+#         params = {
+#             "productType": product_type
+#         }
+#         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+#             async with session.get(url, headers=headers, params=params) as response:
+#                 if response.status == 200:
+#                     return await response.json()
+#                 else:
+#                     return await response.json()
+#
+#     async def open_deposit(self, authorization_token, account_id, deposit_product_id, period, amount,
+#                            auto_prolongation):
+#         url = f"{self.base_url}/deposits"
+#         headers = {
+#             "Authorization": authorization_token,
+#         }
+#         data = {
+#             "accountId": account_id,
+#             "depositProductId": deposit_product_id,
+#             "period": period,
+#             "amount": amount,
+#             "autoProlongation": auto_prolongation
+#         }
+#         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+#             async with session.post(url, headers=headers, json=data) as response:
+#                 if response.status == 201:
+#                     return await response.json()
+#                 else:
+#                     return await response.json()
+#
+#     async def get_deposits(self, authorization_token, status=None):
+#         url = f"{self.base_url}/deposits"
+#         headers = {
+#             "Authorization": authorization_token,
+#         }
+#         params = {
+#             "status": status
+#         } if status else {}
+#
+#         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+#             async with session.get(url, headers=headers, params=params) as response:
+#                 if response.status == 200:
+#                     return await response.json()
+#                 else:
+#                     return await response.json()
+#
+#     async def close_deposit(self, deposit_id, authorization_token):
+#         url = f"{self.base_url}/deposits/{deposit_id}/close"
+#         headers = {
+#             "Authorization": authorization_token,
+#         }
+#         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+#             async with session.post(url, headers=headers) as response:
+#                 if response.status == 200:
+#                     return await response.json()
+#                 else:
+#                     return await response.json()
 
 
-# Example usage
 async def main():
-    bot_id = 7711831733
+    chat_id = 583149224
     bot_username = "neopayment_bot"
-    chat_id = "359453249"
     chat_type = "private"
-    user_id = "359453249"
-    secret_key = b"AAEmec8Bj2BQ6t8kR6ZfjMHlfOLFeXpP9WM"
+    user_id = 583149224
+    bot_id = 7711831733
 
-    client = ApiClient(bot_id, chat_id, chat_type, user_id, bot_username, secret_key)
-    print(await client.get_token())
+    secret_key = b"30ec394b126a59742e36d85e44a08cefe3b349cd81e275af97539c0e8acc6897"
+
+    client = ApiClient(bot_id, bot_username, secret_key)
+    print(await client.get_token(chat_id, chat_type, user_id))
+
     # bank_api_client = BankApiClient(bot_id, chat_id, chat_type, user_id, secret_key)
 
     # account_id = "account_id_to_close"
@@ -159,5 +207,3 @@ async def main():
     # print(close_deposit_response)
 
 
-# Run the example
-asyncio.run(main())

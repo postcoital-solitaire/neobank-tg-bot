@@ -1,0 +1,16 @@
+[Unit]
+  Description=Neopayment Bot
+
+[Service]
+  User=root
+  ExecStart=/usr/bin/python3 -u /root/neobank/main.py
+  Type=idle
+  KillMode=control-group
+
+  SyslogIdentifier=neobank_bot
+  SyslogFacility=daemon
+
+  Restart=on-failure
+
+[Install]
+  WantedBy=multiuser.target
