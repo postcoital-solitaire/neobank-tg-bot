@@ -26,7 +26,7 @@ async def get_deposits_handler_q(call_q: CallbackQuery, bot: Bot):
     await get_deposits_handler(call_q, bot)
 
 @router.message(TypicalFilter(for_replace="/deposits"))
-async def get_deposits_handler(message: Message, bot:Bot, state: FSMContext):
+async def get_deposits_handler(message: Message, bot:Bot):
     token = client.get_token_cache((message.from_user.id, message.from_user.id))
 
     if not token:
@@ -61,7 +61,7 @@ async def get_products_q(call_q: CallbackQuery, bot: Bot):
 
 
 @router.message(TypicalFilter(for_replace="/products"))
-async def get_products_handler(message: Message, bot: Bot, state: FSMContext):
+async def get_products_handler(message: Message, bot: Bot):
     token = client.get_token_cache((message.from_user.id, message.from_user.id))
 
     if not token:
