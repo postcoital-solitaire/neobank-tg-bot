@@ -23,7 +23,7 @@ secret_key = os.getenv("SECRET_KEY")
 client = ApiClient(bot_id, bot_username, str.encode(secret_key))
 
 async def main():
-    bot = Bot(token=c.TOKEN_TG)
+    bot = Bot(token=os.getenv("TOKEN_TG"))
     #await dm.create_pool()
 
     from handlers import registration_handler, main_handler
