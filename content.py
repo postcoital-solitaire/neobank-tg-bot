@@ -1,5 +1,18 @@
+currency = {
+    643: ("Рубль", "RUB"),
+    840: ("Доллар США", "USD"),
+    978: ("Евро", "EUR"),
+    156: ("Юань", "CNY"),
+    949: ("Турецких лир", "TRY")
+}
 
-from models.models import Individual, Card
+def get_currency_symbol(currency_code: int) -> str:
+    symbols = {
+        643: "₽",
+        840: "$",
+        978: "€"
+    }
+    return symbols.get(currency_code, "")
 
 
 BLOCK_RESONES = {
@@ -8,31 +21,6 @@ BLOCK_RESONES = {
 class Commands:
     help = ["/start", "/help"]
     profile = ["/profile", "профиль"]
-
-class IndividualText:
-    @staticmethod
-    def get_registration_text(individual: Individual) -> str:
-        fullname_status = f"{individual.fullname}" if individual.fullname else "🚫 ФИО"
-        birthdate_status = f"{individual.birthdate}" if individual.birthdate else "🚫 Дата рождения"
-        number_status = f"{individual.series} {individual.number}" if individual.series or individual.number else "🚫 Серия и номер паспорта"
-        passport_photo_status = f"✅ Лицевое фото паспорта" if individual.docx_first_page else "🚫 Лицевое фото паспорта"
-        registration_photo_status = f"✅ Фото прописки" if individual.docx_second_page else "🚫 Фото прописки"
-
-        return (f"<b>{fullname_status}</b>\n"
-                f"<code>{birthdate_status}</code>\n"
-                f"<code>{number_status}</code>\n"
-                f"<i>{passport_photo_status}</i>\n"
-                f"<i>{registration_photo_status}</i>\n")
-
-class WorkerText:
-    @staticmethod
-    def greet_text(individual: Individual):
-        return (f"Здравствуйте, для начала работы пройдите регистрацию!\n"
-                f"{IndividualText.get_registration_text(individual)}"
-                f"Отпрвавьте лицевую сторону паспорта!\n")
-
-    REG_END = "Регистрация пройдена, теперь вступай в команду по айдищнику и добавляй карты"
-    PROFILE = "ПРОФИЛЬ"
 
 class Text:
     IN_DEVELOPMENT = "🛠 В разработке ... 🛠"

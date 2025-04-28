@@ -1,16 +1,9 @@
-import os
-
 from aiogram import Router, F, Bot
-from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
-from aiogram.utils.markdown import hbold, hcode
-from pyexpat.errors import messages
-
-from api.neopayapi import ApiClient
-from filters.filter import IsTextFilter, TypicalFilter
+from aiogram.types import CallbackQuery, Message
 from dotenv import load_dotenv
 
-from main import client
+from filters.filter import IsTextFilter, TypicalFilter
+from main import api
 from models.models import DefaultActions, Action
 
 load_dotenv()
@@ -27,14 +20,14 @@ async def get_deposits_handler_q(call_q: CallbackQuery, bot: Bot):
 
 @router.message(TypicalFilter(for_replace="/deposits"))
 async def get_deposits_handler(message: Message, bot:Bot):
-    token = client.get_token_cache((message.from_user.id, message.from_user.id))
+    token = api.get_token_cache((message.from_user.id, message.from_user.id))
 
     if not token:
         await message.answer("Сначала авторизуйтесь через /start.")
         return
 
     try:
-        deposits = await client.get_resource("deposits", token, {"status": "ACTIVE"})
+        deposits = await api.get_resource("deposits", token, {"status": "ACTIVE"})
 
         if not deposits.get("data"):
             await message.answer("У вас нет депозитов.")
@@ -62,14 +55,14 @@ async def get_products_q(call_q: CallbackQuery, bot: Bot):
 
 @router.message(TypicalFilter(for_replace="/products"))
 async def get_products_handler(message: Message, bot: Bot):
-    token = client.get_token_cache((message.from_user.id, message.from_user.id))
+    token = api.get_token_cache((message.from_user.id, message.from_user.id))
 
     if not token:
         await message.answer("Сначала авторизуйтесь через /start.")
         return
 
     try:
-        products = await client.get_resource("products", token, {"productType": "DEPOSIT"})
+        products = await api.get_resource("products", token, {"productType": "DEPOSIT"})
 
         if not products.get("data"):
             await message.answer("Нет доступных продуктов.")
@@ -95,13 +88,13 @@ async def get_accounts_q(call_q: CallbackQuery, bot: Bot):
 
 @router.message(TypicalFilter(for_replace="/accounts"))
 async def get_accounts(message: Message, bot: Bot):
-    token = client.get_token_cache((message.from_user.id, message.from_user.id))
+    token = api.get_token_cache((message.from_user.id, message.from_user.id))
 
     if not token:
         await message.answer("Сначала авторизуйтесь через /start.")
         return
     try:
-        data = await client.get_resource("accounts", token)
+        data = await api.get_resource("accounts", token)
 
         if not data:
             await message.answer("ℹ️ У вас пока нет открытых счетов.")
