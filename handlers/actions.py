@@ -23,7 +23,7 @@ async def handle_product_actions(call: CallbackQuery, state: FSMContext):
     if action == "open":
         await handle_open_action(call, state)
     else:
-        await handle_close_action(call, state)
+        await handle_close_action(call, product_type, state)
 
 
 @router.callback_query(F.data.startswith("open_"))

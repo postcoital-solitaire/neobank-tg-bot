@@ -253,6 +253,35 @@ class NeoBankAPI:
     def try_get_token(self, id: int):
         return self.token_cache.get((id, id), None)
 
+    async def _get_auth_url(
+            self,
+            chat_id: Union[str, int],
+            chat_type: str,
+            user_id: int,
+    ) -> str:
+
+        auth_date = str(int(time.time_ns() // 1_000_000))
+
+        params = {
+            "bot_id": self.bot_id,
+            "bot_username": self.bot_username,
+            "chat_id": str(chat_id),
+            "chat_type": chat_type,
+            "user_id": user_id,
+            "auth_date": auth_date
+        }
+
+        data_string = (
+            f"bot_id={self.bot_id}\n"
+            f"bot_username={self.bot_username}\n"
+            f"chat_id={chat_id}\n"
+            f"chat_type={chat_type}\n"
+            f"user_id={user_id}"
+        )
+
+        params["hash"] = self._generate_signature(data_string)
+        return f"{self.base_url}/auth" + "?" + "&".join([f"{key}={value}" for key, value in params.items()])
+
     async def close_deposit(self, token: str, deposit_id: str) -> dict:
         """Закрытие вклада"""
         return await self._make_request("POST", f"deposits/{deposit_id}/close", token)
@@ -268,37 +297,44 @@ class NeoBankAPI:
         await self.close()
 
 
+
+
+
 async def main():
     load_dotenv()
 
     bot_username = "neopayment_bot"
-    bot_id = "7711831733"
+    bot_id = 7711831733
     secret_key = os.getenv("SECRET_KEY")
 
     api = NeoBankAPI(bot_id=bot_id,
                      bot_username=bot_username,
                      secret_key=str.encode(secret_key))
 
-    try:
-        status, token = await api.get_token(
+    url = await api._get_auth_url(
             chat_id=583149224,
             chat_type="private",
-            user_id=583149224,
-            first_name="Иван",
-            last_name="Иванов",
-            username="ivan_ivanov"
-        )
+            user_id=583149224
+    )
+    print(url)
 
-        if status != 200:
-            print(f"Auth required: {token}")
-            return
+    # try:
+        # status, token = await api.get_token(
+        #     chat_id=583149224,
+        #     chat_type="private",
+        #     user_id=583149224,
+        # )
+        #
+        # if status != 200:
+        #     print(f"Auth required: {token}")
+        #     return
 
 
         # new_account = await api.open_account(token, currency=643, amount=1000)
         # print("New account:", new_account)
-
-        accounts = await api.get_accounts(token)
-        print("Accounts:", accounts)
+        #
+        # accounts = await api.get_accounts(token)
+        # print("Accounts:", accounts)
 
         # deposits = await api.get_deposits(token, status="ACTIVE")
         # print("Active deposits:", deposits)
@@ -321,8 +357,8 @@ async def main():
         #     result = await api.close_deposit(token, deposits[0].id)
         #     print("Deposit closed:", result)
 
-    finally:
-        await api.close()
+    # finally:
+    #     await api.close()
 
 
 if __name__ == '__main__':
