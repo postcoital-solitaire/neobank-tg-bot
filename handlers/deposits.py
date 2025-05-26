@@ -7,14 +7,14 @@ from filters.filter import TypicalFilter
 from keyboards.deposits_kb import get_deposits_kb
 from main import api
 from models.mock_data import MOCK_DATA
-from models.models import DefaultActions, Action
+from models.models import DefaultActions, Action, Deposit
 
 router = Router()
 
 
 @router.message(TypicalFilter(for_replace=["/deposits", "/deposit"]))
 async def deposits_handler(message: Message, state: FSMContext):
-    deposits = await api.get_deposits(api.try_get_token(message.chat.id))
+    deposits = await api.get_deposits(api.try_get_token(message.chat.id), status="ACTIVE")
     print(deposits)
 
     if not deposits:
@@ -34,9 +34,9 @@ async def deposits_handler(message: Message, state: FSMContext):
 async def account_callback(call: CallbackQuery, state: FSMContext):
     await deposits_handler(call.message, state)
 
-def format_deposit_info(deposit):
+def format_deposit_info(deposit: Deposit):
     return (
-        f"Вклад: {deposit['name']}\n"
-        f"Сумма: {deposit['amount']}\n"
-        f"Статус: {deposit['status']}"
+        f"Вклад: {deposit.name}\n"
+        f"Сумма: {deposit.amount}\n"
+        f"Статус: {deposit.status}"
     )

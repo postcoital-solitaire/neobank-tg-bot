@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import time
+from pydoc import plain
+
 import aiohttp
 from dotenv import load_dotenv
 from typing import Optional, List, Union
@@ -94,7 +96,7 @@ class NeoBankAPI:
         """Базовый метод для выполнения запросов"""
         url = f"{self.base_url}/{endpoint}"
         headers = {"Authorization": f"Bearer {token}"}
-
+        print(url)
         try:
             async with self.session.request(
                 method,
@@ -172,45 +174,44 @@ class NeoBankAPI:
 
     async def close_account(self, token: str, account_id: str) -> dict:
         """Закрытие счета"""
-        return await self._make_request("POST", f"accounts/{account_id}/close", token)
+        print(account_id)
+        return await self._make_request("PUT", f"accounts/close-account", token, data={"accountId": account_id, "currencyNumber": 0})
 
-    # Products methods
     async def get_deposit_products(self, token: str) -> List[DepositProduct]:
         """Получение списка депозитных продуктов"""
         params = {"productType": "deposit"}
         data = await self._make_request("GET", "products", token, params=params)
         return [
             DepositProduct(
-                product_id=product["productId"],
-                name=product["depositName"],
-                min_amount=product["minAmount"],
-                max_amount=product["maxAmount"],
-                rate=product["depositRate"],
-                min_period=product["minPeriod"],
-                max_period=product["maxPeriod"],
+                product_id=product["id"],
+                name=product["name"],
+                deposit_product_status=product["depositProductStatus"],
+                branch_id=product["branchId"],
                 currency_number=product["currencyNumber"]
-            ) for product in data.get("products", {}).get("deposits", [])
+            ) for product in data.get("products", {}).get("depositProducts", [])
         ]
 
     async def get_deposits(self, token: str, status: Optional[str] = None) -> List[Deposit]:
         """Получение списка вкладов клиента"""
-        params = {"status": status} if status else None
-        data = await self._make_request("GET", "deposits", token, params=params)
+        params = {"depositStatus": status} if status else None
+        data = await self._make_request("GET", "deposits", token, data=params)
+
+
         return [
             Deposit(
                 id=dep["id"],
                 number=dep["depositNumber"],
-                amount=dep["amount"],
+                amount=dep["startAmount"],
                 start_date=dep["startDepositDate"],
                 end_date=dep.get("endDepositDate"),
                 planned_end_date=dep["planEndDate"],
                 name=dep["depositName"],
-                product_id=dep["depositProductId"],
+                product_id=dep.get("depositProductId"),
                 rate=dep["depositRate"],
                 period=dep["period"],
                 auto_prolongation=dep["prolongation"],
-                status=dep["status"],
-                currency_number=dep["currency_number"]
+                status=dep["depositStatus"],
+                currency_number=dep["currencyNumber"]
             ) for dep in data.get("deposit", [])
         ]
 
@@ -231,7 +232,7 @@ class NeoBankAPI:
             "period": period,
             "autoProlongation": auto_prolongation
         }
-        response = await self._make_request("POST", "deposits", token, data=data)
+        response = await self._make_request("POST", "deposit", token, data=data)
 
         print(data)
         return Deposit(
@@ -284,7 +285,7 @@ class NeoBankAPI:
 
     async def close_deposit(self, token: str, deposit_id: str) -> dict:
         """Закрытие вклада"""
-        return await self._make_request("POST", f"deposits/{deposit_id}/close", token)
+        return await self._make_request("PUT", f"deposit/close-deposit", token, data={"depositId": deposit_id})
 
     async def close(self):
         """Закрытие сессии"""
@@ -296,6 +297,47 @@ class NeoBankAPI:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
+    async def transfer_funds(
+        self,
+        token: str,
+        from_account_id: str,
+        to_account_id: str,
+        amount: float,
+        message: str = ""
+    ) -> dict:
+        """Перевод средств между счетами"""
+        data = {
+            "fromAccountId": from_account_id,
+            "toAccountId": to_account_id,
+            "amount": amount,
+            "message": message
+        }
+        return await self._make_request("POST", "transfer", token, data=data)
+
+    async def close_account_with_transfer(self, token: str, account_id: str, target_wallet_id: str) -> dict:
+        """Перевод средств на кошелёк и закрытие счёта"""
+        accounts = await self.get_accounts(token)
+        from_account = next((a for a in accounts if a.id == account_id), None)
+        if not from_account:
+            raise Exception("Счёт не найден")
+        if from_account.available_amount > 0:
+            await self.transfer_funds(
+                token=token,
+                from_account_id=account_id,
+                to_account_id=target_wallet_id,
+                amount=from_account.available_amount,
+                message="Перевод перед закрытием счёта"
+            )
+        return await self.close_account(token, account_id)
+
+    async def close_deposit_with_transfer(self, token: str, deposit_id: str, target_wallet_id: str) -> dict:
+        """Закрытие вклада с переводом на выбранный счёт"""
+        return await self._make_request(
+            "PUT",
+            f"deposit/close-deposit",
+            token,
+            data={"depositId": deposit_id, "payoutAccountId": target_wallet_id}
+        )
 
 
 
@@ -318,47 +360,47 @@ async def main():
     )
     print(url)
 
-    # try:
-        # status, token = await api.get_token(
-        #     chat_id=583149224,
-        #     chat_type="private",
-        #     user_id=583149224,
-        # )
-        #
-        # if status != 200:
-        #     print(f"Auth required: {token}")
-        #     return
+    try:
+        status, token = await api.get_token(
+            chat_id=583149224,
+            chat_type="private",
+            user_id=583149224,
+        )
+
+        if status != 200:
+            print(f"Auth required: {token}")
+            return
 
 
         # new_account = await api.open_account(token, currency=643, amount=1000)
         # print("New account:", new_account)
         #
-        # accounts = await api.get_accounts(token)
-        # print("Accounts:", accounts)
+        accounts = await api.get_accounts(token)
+        print("Accounts:", accounts)
 
-        # deposits = await api.get_deposits(token, status="ACTIVE")
-        # print("Active deposits:", deposits)
+        deposits = await api.get_deposits(token, status="ACTIVE")
+        print("Active deposits:", deposits)
         #
-        # products = await api.get_deposit_products(token)
-        # print("Deposit products:", products)
+        products = await api.get_deposit_products(token)
+        print("Deposit products:", products)
 
-        # if accounts and products:
-        #     deposit = await api.open_deposit(
-        #         token=token,
-        #         account_id=accounts[0].id,
-        #         product_id=products[0].product_id,
-        #         amount=500,
-        #         period=12,
-        #         auto_prolongation=True
-        #     )
-        #     print("New deposit:", deposit)
+        if accounts and products:
+            deposit = await api.open_deposit(
+                token=token,
+                account_id=accounts[0].id,
+                product_id=products[0].product_id,
+                amount=500,
+                period=12,
+                auto_prolongation=True
+            )
+            print("New deposit:", deposit)
 
         # if deposits:
         #     result = await api.close_deposit(token, deposits[0].id)
         #     print("Deposit closed:", result)
 
-    # finally:
-    #     await api.close()
+    finally:
+        await api.close()
 
 
 if __name__ == '__main__':

@@ -58,11 +58,8 @@ class Account:
 class DepositProduct:
     product_id: str
     name: str
-    min_amount: float
-    max_amount: float
-    rate: float
-    min_period: int
-    max_period: int
+    deposit_product_status: str
+    branch_id: int
     currency_number: int
 
 @dataclass
