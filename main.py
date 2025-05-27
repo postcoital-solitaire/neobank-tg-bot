@@ -19,6 +19,7 @@ load_dotenv()
 bot_username = "neopayment_bot"
 bot_id = 7711831733
 secret_key = os.getenv("SECRET_KEY")
+photo_cache = {}
 
 load_dotenv()
 
@@ -55,19 +56,20 @@ async def main():
 
     #await dm.create_pool()
 
-    #prod
-    # RouterLoader.load_routers(dp, [
-    #     "handlers.start",
-    #     "handlers.deposits",
-    #     "handlers.accounts",
-    #     "handlers.products",
-    #     "handlers.navigation",
-    #     "handlers.actions",
-    #     "handlers.help"
-    # ])
+    # prod
+    RouterLoader.load_routers(dp, [
+        "handlers.start",
+        "handlers.deposits",
+        "handlers.accounts",
+        "handlers.products",
+        "handlers.navigation",
+        "handlers.actions",
+        "handlers.help",
+        "handlers.image_collector"
+    ])
 
-    #dev
-    RouterLoader.load_from_folder(dp)
+    # #dev
+    # RouterLoader.load_from_folder(dp)
 
     logging.warning("Бот начал работу")
 

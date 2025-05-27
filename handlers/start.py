@@ -1,12 +1,10 @@
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.types import CallbackQuery
 
 from filters.filter import IsTextFilter, TypicalFilter
-from keyboards.main_menu import get_open_menu_kb, get_close_menu_kb, get_info_menu_kb
-from main import api
-
-from models.models import DefaultActions, Action
+from keyboards.main_menu import get_main_kb, get_auth_kb
+from main import api, photo_cache
 
 router = Router()
 
@@ -17,63 +15,30 @@ router.message.filter(
 @router.message(
     TypicalFilter(for_replace="/start"))
 async def checktoken(call_q: CallbackQuery, state: FSMContext):
-
     _, token = await api.get_token(call_q.from_user.id, call_q.chat.type, call_q.from_user.id)
     print(_)
 
     if _ != 200:
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="Авторизация", web_app=WebAppInfo(url=token))]
-            ]
-        )
-
         await call_q.answer(
             text=f"Для получения доступа перейдите по ссылке и авторизуйтесь.",
             parse_mode="Markdown",
-            reply_markup=keyboard
+            reply_markup=get_auth_kb(token)
         )
 
         return
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Открыть", callback_data=DefaultActions(
-                action=Action.open_menu
-            ).pack())],
-            [InlineKeyboardButton(text="Закрыть", callback_data=DefaultActions(
-                action=Action.close_menu
-            ).pack())],
-            [InlineKeyboardButton(text="Информация", callback_data=DefaultActions(
-                action=Action.info_menu
-            ).pack())]
-        ]
-    )
+    photo_id = photo_cache.get("start")
 
-    await call_q.answer(
-        text=f"Выберите действие:",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
-
-
-@router.callback_query(DefaultActions.filter(F.action == Action.open_menu))
-async def open_menu_handler(call: CallbackQuery):
-    await call.message.edit_text(
-        text="Что вы хотите открыть?",
-        reply_markup=get_open_menu_kb()
-    )
-
-@router.callback_query(DefaultActions.filter(F.action == Action.close_menu))
-async def close_menu_handler(call: CallbackQuery):
-    await call.message.edit_text(
-        text="Что вы хотите закрыть?",
-        reply_markup=get_close_menu_kb()
-    )
-
-@router.callback_query(DefaultActions.filter(F.action == Action.info_menu))
-async def info_menu_handler(call: CallbackQuery):
-    await call.message.edit_text(
-        text="О чем вы хотите получить информацию?",
-        reply_markup=get_info_menu_kb()
-    )
+    if photo_id:
+        await call_q.answer_photo(
+            photo=photo_id,
+            caption="Выберите продукт:",
+            reply_markup=get_main_kb(),
+            parse_mode="HTML"
+        )
+    else:
+        await call_q.answer(
+            text="Выберите продукт:",
+            reply_markup=get_main_kb(),
+            parse_mode="HTML"
+        )

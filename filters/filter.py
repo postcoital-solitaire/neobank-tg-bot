@@ -21,10 +21,11 @@ class TypicalFilter(BaseFilter):
         message_text = str(message.text).strip().lower()
         return message_text in self.for_replace
 
+
 class GetTagsFilter(BaseFilter):
     #for_replace: Union[str, list]
     def __init__(self, for_replace):
-         self.for_replace: Union[str, list] = for_replace
+        self.for_replace: Union[str, list] = for_replace
 
     async def __call__(self, message: Message) -> Union[bool, Dict[str, Any]]:
 
@@ -48,9 +49,19 @@ class GetTagsFilter(BaseFilter):
                 return False
             return False
 
+
+class ChatFilter(BaseFilter):
+    def __init__(self, chat_id: int = 0):
+        self.chat_id: int = chat_id
+
+    async def __call__(self, message: Message) -> bool:
+        return abs(message.chat.id) == abs(self.chat_id)
+
+
 class IsTextFilter(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         return message.text or False
+
 
 # class IsBeInDataBaseFilter(BaseFilter):
 #     async def __call__(self, message: Message) -> bool:
@@ -91,10 +102,9 @@ class WithPhoto(BaseFilter):
     async def __call__(self, message: Message) -> Union[bool, Dict[str, Any]]:
         return message.photo is not None and message.photo[-1].file_id is not None
 
+
 class IsAdminOrCreator(BaseFilter):
     async def __call__(self, message: Message, bot: Bot) -> bool:
         #or member_status.status in ("creator", "administrator") or message.chat.type == "private"
         #member_status = await bot.get_chat_member(message.chat.id, message.from_user.id)
-        return message.from_user.id in c.ADMINS 
-
-
+        return message.from_user.id in c.ADMINS

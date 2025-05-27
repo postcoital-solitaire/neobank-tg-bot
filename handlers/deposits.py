@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
+from content import get_currency_symbol
 from filters.filter import TypicalFilter
 from keyboards.deposits_kb import get_deposits_kb
 from main import api
@@ -27,7 +28,8 @@ async def deposits_handler(message: Message, state: FSMContext):
 
     await message.answer(
         text=format_deposit_info(deposits[0]),
-        reply_markup=get_deposits_kb()
+        reply_markup=get_deposits_kb(),
+        parse_mode="HTML"
     )
 
 @router.callback_query(DefaultActions.filter(F.action == Action.deposits))
@@ -36,7 +38,9 @@ async def account_callback(call: CallbackQuery, state: FSMContext):
 
 def format_deposit_info(deposit: Deposit):
     return (
-        f"Вклад: {deposit.name}\n"
-        f"Сумма: {deposit.amount}\n"
-        f"Статус: {deposit.status}"
+        f"<b>💳 <code>{deposit.id}\n</code></b>"
+        f"<b>{deposit.name}</b>\n"
+        f"<i>{'✔️' if deposit.auto_prolongation else '❌'} Автопродление</i>\n"
+        f"📅 С {deposit.start_date} по {deposit.planned_end_date}\n"
+        f"💸 {deposit.amount}{get_currency_symbol(deposit.currency_number)} под <b>{deposit.rate}%</b>"
     )

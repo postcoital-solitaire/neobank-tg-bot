@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import time
-from pydoc import plain
 
 import aiohttp
 from dotenv import load_dotenv
@@ -13,6 +12,7 @@ from typing import Optional, List, Union
 from models.models import Account, DepositProduct, Deposit
 
 logger = logging.getLogger(__name__)
+
 
 class NeoBankAPI:
     def __init__(self, bot_id: int, bot_username: str, secret_key: bytes):
@@ -37,7 +37,7 @@ class NeoBankAPI:
             first_name: Optional[str] = None,
             last_name: Optional[str] = None,
             username: Optional[str] = None
-    ) -> tuple[int, str]:
+    ) -> (int, int):
         """Получение токена авторизации"""
         cache_key = (chat_id, user_id)
         if cache_key in self.token_cache:
@@ -86,12 +86,12 @@ class NeoBankAPI:
             raise
 
     async def _make_request(
-        self,
-        method: str,
-        endpoint: str,
-        token: str,
-        params: Optional[dict] = None,
-        data: Optional[dict] = None
+            self,
+            method: str,
+            endpoint: str,
+            token: str,
+            params: Optional[dict] = None,
+            data: Optional[dict] = None
     ) -> dict:
         """Базовый метод для выполнения запросов"""
         url = f"{self.base_url}/{endpoint}"
@@ -99,11 +99,11 @@ class NeoBankAPI:
         print(url)
         try:
             async with self.session.request(
-                method,
-                url,
-                headers=headers,
-                params=params,
-                json=data
+                    method,
+                    url,
+                    headers=headers,
+                    params=params,
+                    json=data
             ) as response:
                 try:
                     response_data = await response.json()
@@ -116,15 +116,14 @@ class NeoBankAPI:
 
                 if response.status >= 400:
                     error_msg = response_data.get("errorDetail",
-                                               response_data.get("raw_response",
-                                                               "Unknown error"))
+                                                  response_data.get("raw_response",
+                                                                    "Unknown error"))
                     raise Exception(f"API error {response.status}: {error_msg}")
 
                 return response_data
         except Exception as e:
             logger.error(f"Request failed: {str(e)}")
             raise
-
 
     async def get_accounts(self, token: str) -> List[Account]:
         """Получение списка счетов клиента"""
@@ -160,7 +159,7 @@ class NeoBankAPI:
             "currencyNumber": currency,
             "amount": amount
         }
-        response = await self._make_request("POST", "accounts", token, data=data)
+        response = await self._make_request("POST", "accounts/account", token, data=data)
         return Account(
             id=response["accountId"],
             account_number=response["accountNumber"],
@@ -172,10 +171,11 @@ class NeoBankAPI:
             currency_number=response["currencyNumber"]
         )
 
-    async def close_account(self, token: str, account_id: str) -> dict:
+    async def close_account(self, token: str, account_id: str, currency_number: int) -> dict:
         """Закрытие счета"""
         print(account_id)
-        return await self._make_request("PUT", f"accounts/close-account", token, data={"accountId": account_id, "currencyNumber": 0})
+        return await self._make_request("PUT", f"accounts/close-account", token,
+                                        data={"accountId": account_id, "currencyNumber": currency_number})
 
     async def get_deposit_products(self, token: str) -> List[DepositProduct]:
         """Получение списка депозитных продуктов"""
@@ -191,11 +191,15 @@ class NeoBankAPI:
             ) for product in data.get("products", {}).get("depositProducts", [])
         ]
 
+    async def get_deposit_rate(self, token: str, account_id: str):
+        """Получение списка депозитных продуктов"""
+        data = await self._make_request("GET", f"deposit/product/{account_id}/rates", token)
+        print(data)
+
     async def get_deposits(self, token: str, status: Optional[str] = None) -> List[Deposit]:
         """Получение списка вкладов клиента"""
         params = {"depositStatus": status} if status else None
         data = await self._make_request("GET", "deposits", token, data=params)
-
 
         return [
             Deposit(
@@ -222,13 +226,16 @@ class NeoBankAPI:
             product_id: str,
             amount: float,
             period: int,
+            currency: int,
             auto_prolongation: bool
     ) -> Deposit:
         """Открытие нового вклада"""
         data = {
             "accountId": account_id,
             "depositProductId": product_id,
-            "amount": amount,
+            "startAmount": amount,
+            "depositRate": 9,
+            "currencyNumber": currency,
             "period": period,
             "autoProlongation": auto_prolongation
         }
@@ -298,37 +305,22 @@ class NeoBankAPI:
         await self.close()
 
     async def transfer_funds(
-        self,
-        token: str,
-        from_account_id: str,
-        to_account_id: str,
-        amount: float,
-        message: str = ""
+            self,
+            token: str,
+            from_account_id: str,
+            to_account_id: str,
+            amount: float,
+            message: str = ""
     ) -> dict:
         """Перевод средств между счетами"""
-        data = {
-            "fromAccountId": from_account_id,
-            "toAccountId": to_account_id,
-            "amount": amount,
-            "message": message
-        }
-        return await self._make_request("POST", "transfer", token, data=data)
-
-    async def close_account_with_transfer(self, token: str, account_id: str, target_wallet_id: str) -> dict:
-        """Перевод средств на кошелёк и закрытие счёта"""
-        accounts = await self.get_accounts(token)
-        from_account = next((a for a in accounts if a.id == account_id), None)
-        if not from_account:
-            raise Exception("Счёт не найден")
-        if from_account.available_amount > 0:
-            await self.transfer_funds(
-                token=token,
-                from_account_id=account_id,
-                to_account_id=target_wallet_id,
-                amount=from_account.available_amount,
-                message="Перевод перед закрытием счёта"
-            )
-        return await self.close_account(token, account_id)
+        return await self._make_request("POST",
+                                        "transfers",
+                                        token, data={
+                "fromAccountId": from_account_id,
+                "toAccountId": to_account_id,
+                "amount": amount,
+                "message": message
+            })
 
     async def close_deposit_with_transfer(self, token: str, deposit_id: str, target_wallet_id: str) -> dict:
         """Закрытие вклада с переводом на выбранный счёт"""
@@ -338,8 +330,6 @@ class NeoBankAPI:
             token,
             data={"depositId": deposit_id, "payoutAccountId": target_wallet_id}
         )
-
-
 
 
 async def main():
@@ -354,9 +344,9 @@ async def main():
                      secret_key=str.encode(secret_key))
 
     url = await api._get_auth_url(
-            chat_id=583149224,
-            chat_type="private",
-            user_id=583149224
+        chat_id=583149224,
+        chat_type="private",
+        user_id=583149224
     )
     print(url)
 
@@ -371,29 +361,46 @@ async def main():
             print(f"Auth required: {token}")
             return
 
-
         # new_account = await api.open_account(token, currency=643, amount=1000)
         # print("New account:", new_account)
         #
         accounts = await api.get_accounts(token)
         print("Accounts:", accounts)
 
-        deposits = await api.get_deposits(token, status="ACTIVE")
-        print("Active deposits:", deposits)
+        # deposits = await api.get_deposits(token, status="ACTIVE")
+        # print("Active deposits:", deposits)
         #
-        products = await api.get_deposit_products(token)
-        print("Deposit products:", products)
+        # products = await api.get_deposit_products(token)
+        # print("Deposit products:", products)
+        #
+        # if accounts and products:
+        #     await api.get_deposit_rate(token=token,
+        #                                account_id=accounts[0].id, )
+        #
+        #     deposit = await api.open_deposit(
+        #         token=token,
+        #         account_id=accounts[0].id,
+        #         product_id=products[0].product_id,
+        #         currency=products[0].currency_number,
+        #         amount=3000,
+        #         period=3,
+        #         auto_prolongation=True
+        #     )
+        #     print("New deposit:", deposit)
 
-        if accounts and products:
-            deposit = await api.open_deposit(
-                token=token,
-                account_id=accounts[0].id,
-                product_id=products[0].product_id,
-                amount=500,
-                period=12,
-                auto_prolongation=True
-            )
-            print("New deposit:", deposit)
+        print(await api.transfer_funds(
+            token=token,
+            from_account_id=accounts[-2].id,
+            to_account_id=accounts[0].id,
+            amount=295997.89
+        ))
+
+        # account = await api.open_account(
+        #             token=token,
+        #             currency=643,
+        #             amount=500,
+        #         )
+        # print("New account:", account)
 
         # if deposits:
         #     result = await api.close_deposit(token, deposits[0].id)

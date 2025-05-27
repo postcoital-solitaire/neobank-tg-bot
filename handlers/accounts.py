@@ -38,17 +38,6 @@ async def account_callback(call: CallbackQuery, state: FSMContext):
     await accounts_handler(call.message, state)
 
 
-@router.callback_query(DefaultActions.filter(F.action == Action.close_current_account))
-async def close_current_account(call: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    account = data.get("items", [{}])[data.get("current_index", 0)]
-
-    await api.close_account(api.try_get_token(call.message.chat.id), )
-
-
-    await call.answer(f"Закрытие счета {account.get('accountNumber', '')}")
-
-
 def format_account_info(account):
     return (
         f"<b>💳 <code>{account.account_number}\n</code></b>"
