@@ -13,7 +13,7 @@ from models.models import DefaultActions, Action, Deposit
 router = Router()
 
 
-@router.message(TypicalFilter(for_replace=["/deposits", "/deposit"]))
+@router.message(TypicalFilter(for_replace=["/deposits", "/deposit", "Вклады"]))
 async def deposits_handler(message: Message, state: FSMContext):
     deposits = await api.get_deposits(api.try_get_token(message.chat.id), status="ACTIVE")
     print(deposits)

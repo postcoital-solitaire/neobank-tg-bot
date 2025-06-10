@@ -1,10 +1,16 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.state import State, StatesGroup
 
+class TransferStates(StatesGroup):
+    choosing_from_account = State()
+    choosing_to_account = State()
+    entering_amount = State()
+    confirming_transfer = State()
 
 class OpenStates(StatesGroup):
     waiting_account_currency = State()
@@ -23,7 +29,7 @@ class Action(str, Enum):
     deposits = "deposits"
     credits = "credits"
     accounts = "accounts"
-    products = "products"
+    transfers = "transfers"
 
     open_account = "open_account"
     open_deposit = "open_deposit"
@@ -56,7 +62,7 @@ class Account:
 
 @dataclass
 class DepositProduct:
-    product_id: str
+    id: str
     name: str
     deposit_product_status: str
     branch_id: int
@@ -77,3 +83,35 @@ class Deposit:
     auto_prolongation: bool
     status: str
     currency_number: int
+
+@dataclass
+class PaymentPlanItem:
+    paymentDate: date
+    monthPayment: float
+    repaymentDept: float
+    paymentPercent: float
+    balanceAmount: float
+    paymentNumber: int
+
+
+@dataclass
+class Credit:
+    id: str
+    number: str
+    amount: float
+    month_payment: float
+    name: str
+    rate: float
+    period: int
+    status: str
+    currency_number: int
+
+    client_id: Optional[str] = None
+    account_id: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    total_amount: Optional[float] = None
+    paid_in_current_month: Optional[bool] = None
+    payment_plan: List[PaymentPlanItem] = field(default_factory=list)
+
+

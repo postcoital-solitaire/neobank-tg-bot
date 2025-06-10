@@ -15,6 +15,14 @@ def get_currency_symbol(currency_code: int) -> str:
     return symbols.get(currency_code, "")
 
 
+from aiogram.types import Message
+
+async def send_long_message(chat_id, text: str, bot, reply_markup=None, parse_mode="HTML"):
+    chunk_size = 4096
+    for i in range(0, len(text), chunk_size):
+        chunk = text[i:i + chunk_size]
+        await bot.send_message(chat_id, chunk, reply_markup=reply_markup if i + chunk_size >= len(text) else None, parse_mode=parse_mode)
+
 BLOCK_RESONES = {
     0: "115 ФЗ",
 }

@@ -18,7 +18,7 @@ async def checktoken(call_q: CallbackQuery, state: FSMContext):
     _, token = await api.get_token(call_q.from_user.id, call_q.chat.type, call_q.from_user.id)
     print(_)
 
-    if _ != 200:
+    if _ != 200 or 'https' in token:
         await call_q.answer(
             text=f"Для получения доступа перейдите по ссылке и авторизуйтесь.",
             parse_mode="Markdown",

@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 from content import get_currency_symbol
 from filters.filter import IsTextFilter
 from handlers.accounts import accounts_handler
+from handlers.credits import credits_handler
 from handlers.deposits import deposits_handler
 from main import api
 from models.models import OpenStates
@@ -21,6 +22,7 @@ PRODUCT_NAMES = {
 HANDLERS = {
     "deposit": deposits_handler,
     "account": accounts_handler,
+    "credit": credits_handler,
 }
 
 

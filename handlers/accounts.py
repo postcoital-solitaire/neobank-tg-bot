@@ -14,7 +14,7 @@ router.message.filter(
     IsTextFilter(),
 )
 
-@router.message(TypicalFilter(for_replace=["/accounts", "/accounts"]))
+@router.message(TypicalFilter(for_replace=["/accounts", "/accounts", "Счета"]))
 async def accounts_handler(message: Message, state: FSMContext):
     print(api.try_get_token(message.chat.id))
     accounts = await api.get_accounts(api.try_get_token(message.chat.id))
@@ -29,6 +29,30 @@ async def accounts_handler(message: Message, state: FSMContext):
 
     await message.answer(
         text=format_account_info(accounts[0]),
+        reply_markup=get_accounts_kb(),
+        parse_mode="HTML"
+    )
+
+@router.message(F.text.regexp(r"^/account\s+(\d+)$"))
+async def specific_account_handler(message: Message, state: FSMContext):
+    token = api.try_get_token(message.chat.id)
+    if not token:
+        return await message.answer("Сначала пройдите регистрацию /start")
+
+    account_number = message.text.split()[1]
+    accounts = await api.get_accounts(token)
+
+    if not accounts:
+        return await message.answer("У вас нет активных счетов.")
+    await state.update_data(items=accounts, current_index=0)
+
+    matched_account = next((acc for acc in accounts if acc.account_number == account_number), None)
+
+    if not matched_account:
+        return await message.answer(f"Счёт с номером {account_number} не найден.")
+
+    await message.answer(
+        text=format_account_info(matched_account),
         reply_markup=get_accounts_kb(),
         parse_mode="HTML"
     )

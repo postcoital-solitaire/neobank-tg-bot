@@ -41,8 +41,13 @@ async def update_item_message(call: CallbackQuery, item, item_type):
         text = format_account_info(item)
         from keyboards.accounts_kb import get_accounts_kb
         kb = get_accounts_kb()
-    else:  # product
-        from handlers.products import format_product_info
+    elif item_type == "credit":
+        from handlers.credits import format_credit_info
+        text = format_credit_info(item)
+        from keyboards.credits_kb import get_credits_kb
+        kb = get_credits_kb()
+    else:
+        from handlers.credits import format_product_info
         text = format_product_info(item)
         from keyboards.products_kb import get_products_kb
         kb = get_products_kb()
