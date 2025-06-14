@@ -10,6 +10,8 @@ from datetime import datetime
 import aiohttp
 from dotenv import load_dotenv
 from typing import Optional, List, Union
+
+from content import DEPOSIT_OPTIONS
 from models.models import Account, DepositProduct, Deposit, Credit, PaymentPlanItem
 
 logger = logging.getLogger(__name__)
@@ -138,7 +140,6 @@ class NeoBankAPI:
                 accounts = data
             else:
                 accounts = []
-
             return [
                 Account(
                     id=acc.get("id", ""),
@@ -148,7 +149,8 @@ class NeoBankAPI:
                     start_date=acc.get("startDate", ""),
                     end_date=acc.get("endDate"),
                     status=acc.get("accountStatus", "UNKNOWN"),
-                    currency_number=acc.get("currencyNumber", 643)
+                    currency_number=acc.get("currencyNumber", 643),
+                    book=acc.get("book", 0)
                 ) for acc in accounts
             ]
         except Exception as e:
@@ -193,15 +195,81 @@ class NeoBankAPI:
             ) for product in data.get("products", {}).get("depositProducts", [])
         ]
 
-    async def get_deposit_rate(self, token: str, id: str):
-        """Получение списка депозитных продуктов"""
-        data = await self._make_request("GET", f"deposit/product/{id}/rates", token)
+    async def get_deposit_options(self, token: str) -> dict:
+        """Получение всех доступных опций по вкладам"""
+        products = await self.get_deposit_products(token)
+        options = {}
+
+        for product in products:
+            rates = await self._make_request("GET", f"deposit/product/{product.id}/rates", token)
+            options[product.name] = rates.get("rates", [])
+
+        return options
+
+    async def open_deposit_with_option(
+            self,
+            token: str,
+            account_id: str,
+            product_name: str,
+            option_name: str,
+            amount: float,
+            auto_prolongation: bool = False
+    ) -> Deposit:
+        """Открытие вклада с выбором конкретного тарифа"""
+        # Получаем все доступные опции
+        deposit_options = DEPOSIT_OPTIONS.get(product_name, {})
+
+        if not deposit_options:
+            raise ValueError(f"Депозитный продукт '{product_name}' не найден")
+
+        option = deposit_options.get(option_name)
+        if not option:
+            raise ValueError(f"Опция '{option_name}' не найдена в продукте '{product_name}'")
+
+        products = await self.get_deposit_products(token)
+        product_id = None
+        for product in products:
+            if product.name == product_name:
+                print(product)
+                product_id = product.id
+                break
+
+        if not product_id:
+            raise ValueError(f"Не удалось найти ID продукта '{product_name}'")
+
+        data = {
+            "accountId": account_id,
+            "depositProductId": option["id"],
+            "startAmount": amount,
+            "depositRate": option["rate"],
+            "currencyNumber": 643,
+            "period": option["period"],
+            "autoProlongation": auto_prolongation
+        }
+
         print(data)
+        response = await self._make_request("POST", "deposit", token, data=data)
+
+        return Deposit(
+            id=response.get("id", ""),
+            number=response.get("depositNumber", ""),
+            amount=amount,
+            start_date=datetime.now().isoformat(),
+            end_date=None,
+            planned_end_date="",
+            name=product_name,
+            product_id=product_id,
+            rate=option["rate"],
+            period=option["period"],
+            auto_prolongation=auto_prolongation,
+            status="ACTIVE",
+            currency_number=643
+        )
 
     async def get_deposits(self, token: str, status: Optional[str] = None) -> List[Deposit]:
         """Получение списка вкладов клиента"""
         params = {"depositStatus": status} if status else None
-        data = await self._make_request("GET", "deposits", token, data=params)
+        data = await self._make_request("POST", "deposits", token, data=params)
 
         return [
             Deposit(
@@ -263,7 +331,7 @@ class NeoBankAPI:
     async def get_credits(self, token: str, status: Optional[str] = "ACTIVE") -> List[Credit]:
         """Получение списка кредитов клиента"""
         params = {"creditStatus": status} if status else None
-        data = await self._make_request("GET", "credits", token, data=params)
+        data = await self._make_request("POST", "credits", token, data=params)
 
         return [
             Credit(
@@ -328,6 +396,71 @@ class NeoBankAPI:
         }
         return await self._make_request("PUT", "credit/repayment", token, data=data)
 
+    async def get_credit_products(self, token: str) -> List[dict]:
+        """Получение списка кредитных продуктов"""
+        params = {"productType": "credit"}
+        data = await self._make_request("GET", "products", token, params=params)
+        return data.get("products", {}).get("creditProducts", [])
+
+    async def calculate_credit_offer(
+            self,
+            token: str,
+            product_id: str,
+            amount: float,
+            period: int,
+            currency: int = 643
+    ) -> dict:
+        """Расчет условий кредита"""
+        data = {
+            "creditProductId": product_id,
+            "amount": amount,
+            "period": period,
+            "currencyNumber": currency
+        }
+        return await self._make_request("POST", "credit/calculation", token, data=data)
+
+    async def open_credit(
+            self,
+            token: str,
+            account_id: str,
+            product_id: str,
+            amount: float,
+            period: int,
+            currency: int = 643
+    ) -> Credit:
+        """Открытие нового кредита"""
+        # Сначала получаем расчет условий
+        calculation = await self.calculate_credit_offer(
+            token=token,
+            product_id=product_id,
+            amount=amount,
+            period=period,
+            currency=currency
+        )
+
+        # Затем открываем кредит
+        data = {
+            "accountId": account_id,
+            "creditProductId": product_id,
+            "amount": amount,
+            "rate": calculation["rate"],
+            "period": period,
+            "currencyNumber": currency
+        }
+
+        response = await self._make_request("POST", "credit", token, data=data)
+
+        return Credit(
+            id=response["id"],
+            number=response["creditNumber"],
+            amount=amount,
+            month_payment=calculation["monthPayment"],
+            name=response.get("creditName", ""),
+            rate=calculation["rate"],
+            period=period,
+            status="ACTIVE",
+            currency_number=currency
+        )
     def try_get_token(self, id: int):
         return self.token_cache.get((id, id), None)
 
@@ -434,11 +567,11 @@ async def main():
         # new_account = await api.open_account(token, currency=643, amount=1000)
         # print("New account:", new_account)
         #
-        # accounts = await api.get_accounts(token)
-        # print("Accounts:", accounts)
+        accounts = [account for account in await api.get_accounts(token) if account.book == 0]
+        print("Accounts:", accounts)
 
-        credits = await api.get_credits(token, status="ACTIVE")
-        print("Active credits:", credits)
+        # credits = await api.get_credits(token, status="ACTIVE")
+        # print("Active credits:", credits)
 
         # deposits = await api.get_deposits(token, status="ACTIVE")
         # print("Active deposits:", deposits)
@@ -447,17 +580,14 @@ async def main():
         # print("Deposit products:", products)
         #
         # print(token)
-        # if accounts and products:
-        #     await api.get_deposit_rate(token=token,
-        #                                id=products[0].id, )
-        #
-        #     deposit = await api.open_deposit(
+        # if accounts:
+        #     account = accounts[2]
+        #     deposit = await api.open_deposit_with_option(
         #         token=token,
-        #         account_id=accounts[0].id,
-        #         product_id=products[0].id,
-        #         currency=products[0].currency_number,
-        #         amount=3000,
-        #         period=3,
+        #         account_id=account.id,
+        #         product_name="Идеальный старт",
+        #         option_name="6 месяцев: 7.5%",
+        #         amount=50000,
         #         auto_prolongation=True
         #     )
         #     print("New deposit:", deposit)
@@ -469,6 +599,35 @@ async def main():
         #     amount=295997.89
         # ))
 
+        account = accounts[0]
+
+
+        credit_products = await api.get_credit_products(token)
+        print("Доступные кредитные продукты:")
+        for i, product in enumerate(credit_products, 1):
+            print(f"{i}. {product['name']} (ID: {product['id']})")
+
+        selected_product = credit_products[0]
+
+        amount = 100000
+        period = 12
+
+        calculation = await api.calculate_credit_offer(
+            token=token,
+            product_id=selected_product["id"],
+            amount=amount,
+            period=period
+        )
+
+        credit = await api.open_credit(
+            token=token,
+            account_id=account.id,
+            product_id=selected_product["id"],
+            amount=amount,
+            period=period
+        )
+        print(f"New credit:", credit)
+        
         # account = await api.open_account(
         #             token=token,
         #             currency=643,
