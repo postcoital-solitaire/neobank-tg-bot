@@ -57,20 +57,21 @@ async def main():
     #await dm.create_pool()
 
     # prod
-    # RouterLoader.load_routers(dp, [
-    #     "handlers.start",
-    #     "handlers.deposits",
-    #     "handlers.accounts",
-    #     "handlers.credits"
-    #     "handlers.navigation",
-    #     "handlers.actions",
-    #     "handlers.help",
-    #     "handlers.transfers",
-    #     "handlers.image_collector"
-    # ])
+    RouterLoader.load_routers(dp, [
+        "handlers.start",
+        "handlers.deposits",
+        "handlers.accounts",
+        "handlers.credits"
+        "handlers.navigation",
+        "handlers.actions",
+        "handlers.help",
+        "handlers.transfers",
+        "handlers.image_collector",
+        "handlers.webapp",
+    ])
 
     # #dev
-    RouterLoader.load_from_folder(dp)
+    #RouterLoader.load_from_folder(dp)
 
     logging.warning("Бот начал работу")
 

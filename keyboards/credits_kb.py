@@ -19,7 +19,6 @@ def get_credits_info_kb():
              InlineKeyboardButton(text="→", callback_data="next_credit")],
             [InlineKeyboardButton(text="Погасить кредит", callback_data="close_credit")],
             [InlineKeyboardButton(text="Инфо по кредиту", callback_data="list:credit")],
-
             [InlineKeyboardButton(text="Открыть кредит", callback_data="open_credit")],
         ]
     )
