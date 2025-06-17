@@ -240,7 +240,7 @@ class NeoBankAPI:
         data = {
             "accountId": account_id,
             "depositProductId": option["id"],
-            "startAmount": amount,
+            "startAmount": int(amount),
             "depositRate": option["rate"],
             "currencyNumber": 643,
             "period": option["period"],
@@ -567,7 +567,7 @@ async def main():
         # new_account = await api.open_account(token, currency=643, amount=1000)
         # print("New account:", new_account)
         #
-        accounts = [account for account in await api.get_accounts(token) if account.book == 0]
+        accounts = [account for account in await api.get_accounts(token) if account.book == 0 and account.currency_number==643]
         print("Accounts:", accounts)
 
         # credits = await api.get_credits(token, status="ACTIVE")
@@ -580,17 +580,17 @@ async def main():
         # print("Deposit products:", products)
         #
         # print(token)
-        # if accounts:
-        #     account = accounts[2]
-        #     deposit = await api.open_deposit_with_option(
-        #         token=token,
-        #         account_id=account.id,
-        #         product_name="Идеальный старт",
-        #         option_name="6 месяцев: 7.5%",
-        #         amount=50000,
-        #         auto_prolongation=True
-        #     )
-        #     print("New deposit:", deposit)
+        if accounts:
+            account = accounts[2]
+            deposit = await api.open_deposit_with_option(
+                token=token,
+                account_id=account.id,
+                product_name="Идеальный старт",
+                option_name="6 месяцев: 7.5%",
+                amount=50000,
+                auto_prolongation=True
+            )
+            print("New deposit:", deposit)
 
         # print(await api.transfer_funds(
         #     token=token,
@@ -600,7 +600,6 @@ async def main():
         # ))
 
         account = accounts[0]
-
 
         credit_products = await api.get_credit_products(token)
         print("Доступные кредитные продукты:")

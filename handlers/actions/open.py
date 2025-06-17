@@ -4,36 +4,13 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 
 from content import get_currency_symbol, DEPOSIT_OPTIONS
 from filters.filter import IsTextFilter
-from handlers.accounts import accounts_handler
-from handlers.credits import credits_handler
-from handlers.deposits import deposits_handler
 from main import api
 from models.models import OpenStates
+from content import CURRENCY
 
 router = Router()
 router.message.filter(IsTextFilter())
 
-PRODUCT_NAMES = {
-    "deposit": "вклад",
-    "account": "счет",
-    "credit": "кредит"
-}
-
-HANDLERS = {
-    "deposit": deposits_handler,
-    "account": accounts_handler,
-    "credit": credits_handler,
-}
-
-def get_product_name(product_type: str) -> str:
-    return PRODUCT_NAMES.get(product_type, "продукт")
-
-
-def get_product_handler(product_type: str):
-    return HANDLERS.get(product_type)
-
-
-# Хендлеры для открытия продуктов
 @router.callback_query(F.data.startswith("open_"))
 async def handle_open_action(call: CallbackQuery, state: FSMContext):
     _, product_type = call.data.split("_", 1)
@@ -50,12 +27,11 @@ async def handle_open_action(call: CallbackQuery, state: FSMContext):
     elif product_type == "credit":
         await handle_open_credit(call, state)
 
-from content import CURRENCY
 
 async def handle_open_account(call: CallbackQuery, state: FSMContext):
     """Обработка открытия нового счета"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=currency["name"], callback_data=f"open_account_currency:{code}")]
+        [InlineKeyboardButton(text=f"{currency[0]} ({currency[1]})", callback_data=f"op_acc_cur:{code}")]
         for code, currency in CURRENCY.items()
     ])
 
@@ -63,10 +39,9 @@ async def handle_open_account(call: CallbackQuery, state: FSMContext):
         "💳 Выберите валюту для нового счета:",
         reply_markup=keyboard
     )
-    await state.set_state(OpenStates.waiting_for_account_currency)
 
 
-@router.callback_query(F.data.startswith("open_account_currency:"), OpenStates.waiting_for_account_currency)
+@router.callback_query(F.data.startswith("op_acc_cur:"))
 async def handle_account_currency_selection(call: CallbackQuery, state: FSMContext):
     """Обработка выбора валюты для счета"""
     currency_code = int(call.data.split(":")[1])
@@ -78,6 +53,7 @@ async def handle_account_currency_selection(call: CallbackQuery, state: FSMConte
             [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel:account")]
         ])
     )
+    await call.answer()
     await state.set_state(OpenStates.waiting_for_account_amount)
 
 
@@ -104,12 +80,13 @@ async def handle_account_amount_input(message: Message, state: FSMContext):
         account = await api.open_account(token, currency_code, amount)
         await message.answer(
             f"✅ Счет успешно открыт!\n"
-            f"Номер: {account.account_number}\n"
+            f"Номер: <code>{account.account_number}</code>\n"
             f"Сумма: {amount:.2f} {get_currency_symbol(currency_code)}",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="← К списку счетов", callback_data="list:account")]
                 ]
-            )
+            ),
+            parse_mode="HTML"
         )
         await state.clear()
     except Exception as e:
@@ -123,9 +100,8 @@ async def handle_open_deposit(call: CallbackQuery, state: FSMContext):
         await call.answer("❌ Требуется авторизация")
         return
 
-    # Получаем список счетов для выбора источника средств
     accounts = await api.get_accounts(token)
-    rub_accounts = [acc for acc in accounts if acc.currency_number == 643 and acc.status == "ACTIVE"]
+    rub_accounts = [acc for acc in accounts if acc.book == 0 and acc.status == "ACTIVE" and acc.currency_number == 643]
 
     if not rub_accounts:
         await call.message.edit_text(
@@ -158,7 +134,6 @@ async def handle_deposit_account_selection(call: CallbackQuery, state: FSMContex
     await state.update_data(account_id=account_id)
 
     # Получаем список доступных вкладов
-    token = api.try_get_token(call.message.chat.id)
     deposit_options = DEPOSIT_OPTIONS
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -181,8 +156,8 @@ async def handle_deposit_type_selection(call: CallbackQuery, state: FSMContext):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text=f"{name} ({opt['rate']}% на {opt['period']} мес.)",
-            callback_data=f"select_deposit_option:{deposit_type}:{name}"
+            text=f"{name}",
+            callback_data=f"sel_dep_opt:{deposit_type}:{name}"
         )] for name, opt in options.items()
     ])
 
@@ -193,10 +168,12 @@ async def handle_deposit_type_selection(call: CallbackQuery, state: FSMContext):
     await state.set_state(OpenStates.waiting_for_deposit_option)
 
 
-@router.callback_query(F.data.startswith("select_deposit_option:"), OpenStates.waiting_for_deposit_option)
+@router.callback_query(F.data.startswith("sel_dep_opt:"), OpenStates.waiting_for_deposit_option)
 async def handle_deposit_option_selection(call: CallbackQuery, state: FSMContext):
     """Обработка выбора опции вклада"""
-    _, deposit_type, option_name = call.data.split(":")
+    _, deposit_type, option_name, percent = call.data.split(":")
+    option_name = option_name + ":" + percent
+
     option = DEPOSIT_OPTIONS[deposit_type][option_name]
 
     await state.update_data(
@@ -206,11 +183,13 @@ async def handle_deposit_option_selection(call: CallbackQuery, state: FSMContext
     )
 
     await call.message.edit_text(
-        f"💰 Введите сумму для открытия вклада '{deposit_type} - {option_name}':\n"
-        f"Минимальная сумма: {30000} ₽",
+        f"💰 Введите сумму для открытия вклада\n"
+        f"<b>'{deposit_type} - {option_name}'</b>:\n"
+        f"<i>Минимальная сумма: {30000}₽ </i>",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel:deposit")]
-        ])
+        ]),
+        parse_mode="HTML"
     )
     await state.set_state(OpenStates.waiting_for_deposit_amount)
 
@@ -244,7 +223,7 @@ async def handle_deposit_amount_input(message: Message, state: FSMContext):
             product_name=data["deposit_type"],
             option_name=data["option_name"],
             amount=amount,
-            auto_prolongation=False
+            auto_prolongation=True
         )
 
         await message.answer(
@@ -434,191 +413,3 @@ async def handle_credit_account_selection(call: CallbackQuery, state: FSMContext
     except Exception as e:
         await call.message.edit_text(f"❌ Ошибка при оформлении кредита: {str(e)}")
 
-
-@router.callback_query(F.data.startswith("close_"))
-async def handle_close_action(call: CallbackQuery, state: FSMContext):
-    _, product_type = call.data.split("_", 1)
-
-    token = api.try_get_token(call.message.chat.id)
-    if not token:
-        await call.answer("❌ Требуется авторизация")
-        return
-
-    data = await state.get_data()
-    items = data.get("items", [])
-    current_index = data.get("current_index", 0)
-
-    if not items:
-        await call.answer(f"Нет активных {get_product_name(product_type)}ов для закрытия")
-        return
-
-    current_item = items[current_index]
-    source_currency_id = current_item.currency_number
-    amount = getattr(current_item, "amount", 0)
-
-    if amount == 0 or product_type == "deposit":
-        await state.update_data(
-            product_type=product_type,
-            current_index=current_index,
-            source_id=current_item.id,
-            source_currency_id=source_currency_id
-        )
-
-        confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="✅ Подтвердить закрытие", callback_data="confirm_transfer_close"),
-                InlineKeyboardButton(text="❌ Отмена", callback_data=f"cancel:{product_type}")
-            ]
-        ])
-        await call.message.edit_text(
-            f"⚠️ Подтвердите закрытие {get_product_name(product_type)}а.",
-            reply_markup=confirm_keyboard
-        )
-        return
-
-    try:
-        accounts = await api.get_accounts(token)
-        wallets = [acc for acc in accounts if acc.status == "ACTIVE" and acc.id != current_item.id and acc.currency_number == source_currency_id]
-        if not wallets:
-            await call.message.edit_text(
-                "❌ Невозможно закрыть: нет доступных счетов для перевода средств.",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="← Назад", callback_data=f"list:{product_type}")]
-                ])
-            )
-            return
-
-        await state.update_data(
-            product_type=product_type,
-            current_index=current_index,
-            account_selection=wallets,
-            source_currency_id=source_currency_id
-        )
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(
-                text=f"{acc.account_number} ({acc.amount:.2f} {get_currency_symbol(acc.currency_number)})",
-                callback_data=f"select_account_idx:{i}"
-            )] for i, acc in enumerate(wallets)
-        ])
-
-        await call.message.edit_text(
-            "💸 Выберите счёт для перевода средств перед закрытием:",
-            reply_markup=keyboard
-        )
-    except Exception as e:
-        await call.message.edit_text(f"❌ Ошибка при загрузке счетов: {e}")
-
-@router.callback_query(F.data.startswith("select_account_idx:"))
-async def handle_account_selection(call: CallbackQuery, state: FSMContext):
-    index = int(call.data.split(":")[1])
-    data = await state.get_data()
-
-    wallets = data.get("account_selection", [])
-    if index >= len(wallets):
-        await call.answer("⚠️ Неверный выбор")
-        return
-
-    selected_account = wallets[index]
-    target_id = selected_account.id
-
-    items = data.get("items", [])
-    current_index = data.get("current_index", 0)
-    source = items[current_index]
-    product_type = data.get("product_type")
-
-    await state.update_data(target_account_id=target_id, source_id=source.id)
-
-    confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_transfer_close"),
-            InlineKeyboardButton(text="❌ Отмена", callback_data=f"cancel:{product_type}")
-        ]
-    ])
-
-    await call.message.edit_text(
-        f"⚠️ Подтвердите перевод средств и закрытие {get_product_name(product_type)}а",
-        reply_markup=confirm_keyboard
-    )
-
-@router.callback_query(F.data == "confirm_transfer_close")
-async def handle_transfer_and_close(call: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    token = api.try_get_token(call.message.chat.id)
-
-    if not token:
-        await call.answer("❌ Требуется авторизация")
-        return
-
-    product_type = data.get("product_type", "deposit")
-    source_id = data.get("source_id")
-    target_id = data.get("target_account_id")
-
-    source_currency_id = data.get("source_currency_id")
-
-    items = data.get("items", [])
-    source = next((item for item in items if str(item.id) == str(source_id)), None)
-    amount = getattr(source, "amount", 0)
-
-    try:
-        if product_type != "deposit":
-            await api.transfer_funds(
-                token=token,
-                from_account_id=source_id,
-                to_account_id=target_id,
-                amount=amount,
-                message=f"Автоматический перевод перед закрытием счета {source_id}"
-            )
-
-        if product_type == "deposit":
-            await api.close_deposit(token, source_id)
-        elif product_type == "account":
-            await api.close_account(token, source_id, source_currency_id)
-
-        await call.answer(f"✅ {get_product_name(product_type).capitalize()} успешно закрыт", show_alert=True)
-
-        updated_items = [item for item in items if str(item.id) != source_id]
-        await state.update_data(items=updated_items)
-        await show_updated_list(call, product_type, state)
-
-    except Exception as e:
-        await call.message.edit_text(
-            f"❌ Ошибка при переводе или закрытии: {e}",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="← Назад", callback_data=f"list:{product_type}")]
-            ])
-        )
-
-
-async def show_updated_list(call: CallbackQuery, product_type: str, state: FSMContext):
-    data = await state.get_data()
-    items = data.get("items", [])
-
-    if not items:
-        await call.message.edit_text(
-            f"🔹 У вас нет активных {get_product_name(product_type)}ов",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="В главное меню", callback_data="main_menu")]
-            ])
-        )
-        return
-
-    try:
-        await call.message.delete()
-    except:
-        pass
-
-    handler = get_product_handler(product_type)
-    if handler:
-        await handler(call.message, state)
-
-
-@router.callback_query(F.data.regexp(r"^(cancel|list):"))
-async def handle_back(call: CallbackQuery, state: FSMContext):
-    _, product_type = call.data.split(":")
-    handler = get_product_handler(product_type)
-    print(product_type)
-    if handler:
-        await handler(call.message, state)
-    else:
-        await call.answer("⚠️ Неизвестный тип продукта")

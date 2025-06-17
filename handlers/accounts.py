@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
-from content import currency
+from content import CURRENCY
 from filters.filter import IsTextFilter, TypicalFilter
 from keyboards.accounts_kb import get_accounts_kb
 from main import api
@@ -66,5 +66,5 @@ def format_account_info(account):
     return (
         f"<b>💳 <code>{account.account_number}\n</code></b>"
         f"📅 Открыт {account.start_date} {account.status}\n"
-        f"🟢 Доступно: {account.available_amount} / {account.amount}\n {currency.get(account.currency_number)[-1]}"
+        f"🟢 Доступно: {account.available_amount} / {account.amount}\n {CURRENCY.get(account.currency_number)[-1]}"
     )

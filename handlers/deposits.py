@@ -38,7 +38,7 @@ async def account_callback(call: CallbackQuery, state: FSMContext):
 
 def format_deposit_info(deposit: Deposit):
     return (
-        f"<b>💳 <code>{deposit.id}\n</code></b>"
+        f"<b>💳 <code>{deposit.number}\n</code></b>"
         f"<b>{deposit.name}</b>\n"
         f"<i>{'✔️' if deposit.auto_prolongation else '❌'} Автопродление</i>\n"
         f"📅 С {deposit.start_date} по {deposit.planned_end_date}\n"

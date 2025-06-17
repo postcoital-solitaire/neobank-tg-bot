@@ -4,7 +4,7 @@ from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from content import currency, send_long_message
+from content import CURRENCY, send_long_message
 from filters.filter import IsTextFilter, TypicalFilter
 from keyboards.credits_kb import get_credits_kb, get_credits_info_kb
 from main import api
@@ -89,5 +89,5 @@ def format_credit_info(credit):
         f"🏦 {credit.name} {credit.status}\n"
         f"📊 Ставка: {credit.rate}% | Срок: {credit.period} мес.\n"
         f"💰 Ежемесячный платёж: {credit.month_payment}\n"
-        f"💼 Остаток: {credit.amount} {currency.get(credit.currency_number)[-1]}"
+        f"💼 Остаток: {credit.amount} {CURRENCY.get(credit.currency_number)[-1]}"
     )

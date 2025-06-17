@@ -1,13 +1,11 @@
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 
+from content import CURRENCY
 from filters.filter import IsTextFilter, TypicalFilter
-from keyboards.transfers_kb import get_transfers_kb
 from main import api
-from models.models import DefaultActions, Action, TransferStates
-from content import currency
+from models.models import TransferStates
 
 router = Router()
 router.message.filter(IsTextFilter())
@@ -27,7 +25,7 @@ async def transfers_start(message: Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(
-                text=f"{a.account_number} ({a.amount} {currency.get(a.currency_number)[-1]})",
+                text=f"{a.account_number} ({a.amount} {CURRENCY.get(a.currency_number)[-1]})",
                 callback_data=f"from_{i}"
             )] for i, a in enumerate(accounts)
         ]
@@ -49,7 +47,7 @@ async def choose_from_account(call: CallbackQuery, state: FSMContext):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(
-                text=f"{a.account_number} ({a.amount} {currency.get(a.currency_number)[-1]})",
+                text=f"{a.account_number} ({a.amount} {CURRENCY.get(a.currency_number)[-1]})",
                 callback_data=f"to_{i}"
             )] for i, a in enumerate(to_accounts)
         ]
@@ -69,8 +67,8 @@ async def choose_to_account(call: CallbackQuery, state: FSMContext):
     await state.update_data(to_account=to_account)
     await state.set_state(TransferStates.entering_amount)
 
-    from_currency = currency.get(from_account.currency_number)[-1]
-    to_currency = currency.get(to_account.currency_number)[-1]
+    from_currency = CURRENCY.get(from_account.currency_number)[-1]
+    to_currency = CURRENCY.get(to_account.currency_number)[-1]
 
     await call.message.edit_text(
         f"<b>Вы выбрали перевод:</b>\n\n"
@@ -100,7 +98,7 @@ async def enter_transfer_amount(message: Message, state: FSMContext):
 
     from_acc = data["from_account"]
     to_acc = data["to_account"]
-    currency_sign = currency.get(from_acc.currency_number)[-1]
+    currency_sign = CURRENCY.get(from_acc.currency_number)[-1]
 
     await state.set_state(TransferStates.confirming_transfer)
     await message.answer(

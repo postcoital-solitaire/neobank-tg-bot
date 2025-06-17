@@ -69,7 +69,7 @@ class Account:
     end_date: Optional[str]
     status: str
     currency_number: int
-    book: int
+    book: int = 0
 
 @dataclass
 class DepositProduct:
